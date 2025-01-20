@@ -50,7 +50,9 @@ class Go2Env:
         )
 
         # add plain
-        self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", fixed=True))
+        self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", pos=(0,0,0), fixed=True))
+        self.scene.add_entity(gs.morphs.Mesh(file="stair/STAIRS.stl", pos=(2,0,0), euler = (0, 0, -90), scale=0.3, fixed=True))
+        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(0,0,-0.2), fixed=True, scale=1.0))
 
         # add robot
         self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=self.device)
@@ -216,7 +218,7 @@ class Go2Env:
         self.last_dof_vel[envs_idx] = 0.0
         self.episode_length_buf[envs_idx] = 0
         self.reset_buf[envs_idx] = True
-
+        print("reset")
         # fill extras
         self.extras["episode"] = {}
         for key in self.episode_sums.keys():

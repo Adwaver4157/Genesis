@@ -36,10 +36,18 @@ def main():
     policy = runner.get_inference_policy(device="cuda:0")
 
     obs, _ = env.reset()
+    steps = 100
+    s = 0
     with torch.no_grad():
         while True:
             actions = policy(obs)
             obs, _, rews, dones, infos = env.step(actions)
+            s += 1
+            print(s)
+            # if s >= steps:
+            #     env.reset()
+            #     print("reset")
+            #     s = 0
 
 
 if __name__ == "__main__":
