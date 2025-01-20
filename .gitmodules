@@ -7,3 +7,6 @@
 [submodule "genesis/ext/ParticleMesher"]
 	path = genesis/ext/ParticleMesher
 	url = https://github.com/ACMLCZH/ParticleMesher
+[submodule "terrain-generator"]
+	path = terrain-generator
+	url = https://github.com/leggedrobotics/terrain-generator.git
