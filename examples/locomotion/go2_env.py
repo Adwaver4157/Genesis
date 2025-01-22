@@ -51,9 +51,13 @@ class Go2Env:
         )
 
         # add plain
-        self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", pos=(0,0,0), fixed=True))
-        self.scene.add_entity(gs.morphs.Mesh(file="stair/STAIRS.stl", pos=(2,0,0), euler=(0,0,-90), fixed=True, scale=0.2))
-        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(0,0,1), fixed=True, scale=5.0))
+        self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", pos=(0,0,0), fixed=True)) # OK1
+        # self.scene.add_entity(gs.morphs.Mesh(file="stair/STAIRS.stl", pos=(2,0,0), euler=(0,0,-90), fixed=True, scale=0.2))
+        self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(23,-0.2,0.8), fixed=True, scale=1.0)) # NG1
+        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(23,-0.2,0.5), fixed=True, scale=1.0))
+        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(23,-0.2,-10), fixed=True, scale=1.0)) # OK1
+        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(0,0,0), fixed=True, scale=10.0))
+        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(0,0,0), fixed=True, scale=2.0)) # NG2
 
         # add robot
         self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=self.device)
@@ -77,7 +81,7 @@ class Go2Env:
         # )
 
         self.follower_camera = self.scene.add_camera(res=(640,480),
-                                pos=(0.0, 2.0, 0.5),
+                                pos=(-1, 3.0, 2),
                                 lookat=(0.0, 0.0, 0.5),
                                 fov=40,
                                 GUI=True)
@@ -178,7 +182,7 @@ class Go2Env:
         self.scene.step()
 
         if hasattr(self, "follower_camera"):
-            self.follower_camera.render()
+            self.follower_camera.render(depth=True, segmentation=True, normal=True)
         
         if hasattr(self, "head_camera"):
             self.head_camera.render(depth=True, segmentation=True, normal=True)

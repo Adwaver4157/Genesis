@@ -54,11 +54,11 @@ def main():
             #     env.reset()
             #     print("reset")
             #     s = 0
-            if s >= 300:
+            if s >= 400:
                 break
     # env.cam.stop_recording(save_to_filename='video.mp4', fps=60)
-    env.follower_camera.stop_recording(save_to_filename='follow_video.mp4', fps=60)
-    env.head_camera.stop_recording(save_to_filename='head_video.mp4', fps=60)
+    env.follower_camera.stop_recording(save_to_filename='logs/videos/follow_video_get_in_mesh_failure.mp4', fps=60)
+    env.head_camera.stop_recording(save_to_filename='logs/videos/head_video_get_in_mesh_failure.mp4', fps=60)
 
 if __name__ == "__main__":
     main()

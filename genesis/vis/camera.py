@@ -95,6 +95,8 @@ class Camera(RBC):
         self._in_recording = False
         self._recorded_imgs = []
         self._recorded_depths = []
+        self._recorded_segs = []
+        self._recorded_normals = []
 
         self._init_pos = np.array(pos)
 
@@ -240,6 +242,10 @@ class Camera(RBC):
         if self._in_recording and depth_arr is not None:
             processed_depth = cv2.cvtColor(depth_arr, cv2.COLOR_GRAY2RGB)
             self._recorded_depths.append(processed_depth)
+        if self._in_recording and seg_idxc_arr is not None:
+            self._recorded_segs.append(seg_color_arr)
+        if self._in_recording and normal_arr is not None:
+            self._recorded_normals.append(normal_arr)
 
         return rgb_arr, depth_arr, seg_arr, normal_arr
 
@@ -413,8 +419,14 @@ class Camera(RBC):
         gs.tools.animate(self._recorded_imgs, save_to_filename, fps)
         depth_save_to_filename = save_to_filename.replace(".mp4", "_depth.mp4")
         gs.tools.animate(self._recorded_depths, depth_save_to_filename, fps)
+        seg_save_to_filename = save_to_filename.replace(".mp4", "_seg.mp4")
+        gs.tools.animate(self._recorded_segs, seg_save_to_filename, fps)
+        normal_save_to_filename = save_to_filename.replace(".mp4", "_normal.mp4")
+        gs.tools.animate(self._recorded_normals, normal_save_to_filename, fps)
         self._recorded_imgs.clear()
         self._recorded_depths.clear()
+        self._recorded_segs.clear()
+        self._recorded_normals.clear()
         self._in_recording = False
 
     def _repr_brief(self):
