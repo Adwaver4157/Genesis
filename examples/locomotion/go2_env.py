@@ -51,7 +51,7 @@ class Go2Env:
 
         # add plain
         self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", pos=(0,0,0), fixed=True))
-        self.scene.add_entity(gs.morphs.Mesh(file="stair/STAIRS.stl", pos=(2,0,0), euler = (0, 0, -90), scale=0.3, fixed=True))
+        self.scene.add_entity(gs.morphs.Mesh(file="stair/STAIRS.stl", pos=(2,0,0), euler=(0,0,-90), fixed=True, scale=0.2))
         # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(0,0,-0.2), fixed=True, scale=1.0))
 
         # add robot
@@ -64,6 +64,15 @@ class Go2Env:
                 pos=self.base_init_pos.cpu().numpy(),
                 quat=self.base_init_quat.cpu().numpy(),
             ),
+        )
+
+        # add camera
+        self.cam = self.scene.add_camera(
+            res    = (1280, 960),
+            pos    = (3.5, 0.0, 2.5),
+            lookat = (0, 0, 0.5),
+            fov    = 30,
+            GUI    = True
         )
 
         # build

@@ -36,10 +36,14 @@ def main():
     policy = runner.get_inference_policy(device="cuda:0")
 
     obs, _ = env.reset()
-    steps = 100
+    # RGB, depth, segmentation, normal
+    # rgb, depth, segmentation, normal = env.cam.render(depth=True, segmentation=True, normal=True)
+    env.cam.start_recording()
+    teps = 100
     s = 0
     with torch.no_grad():
         while True:
+            env.cam.render()
             actions = policy(obs)
             obs, _, rews, dones, infos = env.step(actions)
             s += 1
@@ -48,7 +52,7 @@ def main():
             #     env.reset()
             #     print("reset")
             #     s = 0
-
+    env.cam.stop_recording(save_to_filename='video.mp4', fps=60)
 
 if __name__ == "__main__":
     main()
