@@ -38,12 +38,14 @@ def main():
     obs, _ = env.reset()
     # RGB, depth, segmentation, normal
     # rgb, depth, segmentation, normal = env.cam.render(depth=True, segmentation=True, normal=True)
-    env.cam.start_recording()
-    teps = 100
+    # env.cam.start_recording()
+    env.follower_camera.start_recording()
+    env.head_camera.start_recording()
+    steps = 100
     s = 0
     with torch.no_grad():
         while True:
-            env.cam.render()
+            # env.cam.render()
             actions = policy(obs)
             obs, _, rews, dones, infos = env.step(actions)
             s += 1
@@ -52,7 +54,11 @@ def main():
             #     env.reset()
             #     print("reset")
             #     s = 0
-    env.cam.stop_recording(save_to_filename='video.mp4', fps=60)
+            if s >= 300:
+                break
+    # env.cam.stop_recording(save_to_filename='video.mp4', fps=60)
+    env.follower_camera.stop_recording(save_to_filename='follow_video.mp4', fps=60)
+    env.head_camera.stop_recording(save_to_filename='head_video.mp4', fps=60)
 
 if __name__ == "__main__":
     main()

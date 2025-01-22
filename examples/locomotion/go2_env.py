@@ -1,5 +1,6 @@
 import torch
 import math
+import numpy as np
 import genesis as gs
 from genesis.utils.geom import quat_to_xyz, transform_by_quat, inv_quat, transform_quat_by_quat
 
@@ -52,7 +53,7 @@ class Go2Env:
         # add plain
         self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", pos=(0,0,0), fixed=True))
         self.scene.add_entity(gs.morphs.Mesh(file="stair/STAIRS.stl", pos=(2,0,0), euler=(0,0,-90), fixed=True, scale=0.2))
-        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(0,0,-0.2), fixed=True, scale=1.0))
+        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(0,0,1), fixed=True, scale=5.0))
 
         # add robot
         self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=self.device)
@@ -67,13 +68,54 @@ class Go2Env:
         )
 
         # add camera
-        self.cam = self.scene.add_camera(
-            res    = (1280, 960),
-            pos    = (3.5, 0.0, 2.5),
-            lookat = (0, 0, 0.5),
-            fov    = 30,
-            GUI    = True
-        )
+        # self.cam = self.scene.add_camera(
+        #     res    = (1280, 960),
+        #     pos    = (3.5, 0.0, 2.5),
+        #     lookat = (0, 0, 0.5),
+        #     fov    = 30,
+        #     GUI    = True
+        # )
+
+        self.follower_camera = self.scene.add_camera(res=(640,480),
+                                pos=(0.0, 2.0, 0.5),
+                                lookat=(0.0, 0.0, 0.5),
+                                fov=40,
+                                GUI=True)
+        # follow the robot at a fixed height and orientation 
+        # self.follower_camera.follow_entity(self.robot, fixed_axis=(None, None, 0.5), smoothing=0.5, fix_orientation=True)
+        self.follower_camera.follow_entity(self.robot, fixed_axis=(None, None, None), smoothing=0.5, fix_orientation=False)
+
+        self.head_camera = self.scene.add_camera(res=(640,480), pos=(0.0, 0.0, 0.5), lookat=(0.0, 0.0, 0.5), fov=40,GUI=True)
+        theta_x = np.deg2rad(90)
+        theta_y = np.deg2rad(-90)
+        # theta_z = np.deg2rad(90)
+        Rx = np.array([
+            [ 1, 0, 0, 0],
+            [ 0, np.cos(theta_x), -np.sin(theta_x), 0],
+            [ 0, np.sin(theta_x), np.cos(theta_y), 0],
+            [               0, 0,               0, 1]
+        ])
+        Ry = np.array([
+            [ np.cos(theta_y), 0, np.sin(theta_y), 0],
+            [               0, 1,               0, 0],
+            [-np.sin(theta_y), 0, np.cos(theta_y), 0],
+            [               0, 0,               0, 1]
+        ])
+        # Rz = np.array([
+        #     [ np.cos(theta_z), -np.sin(theta_z), 0, 0],
+        #     [ np.sin(theta_z),  np.cos(theta_z), 0, 0],
+        #     [               0,                0, 1, 0],
+        #     [               0,                0, 0, 1]
+        # ])
+        # 「Z軸回転 → Y軸回転」をまとめた回転行列
+        R = Rx @ Ry
+        offset_T = np.eye(4)
+        offset_T[:, 3] = [0, 0.1, -0.26, 1] # オフセット行列の平行移動成分を設定 y, z, -x world座標系(右手系)
+        # offset_T[0, 3] = 0.1
+        # import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
+        offset_T = R @ offset_T  # オフセット行列にZ回転を適用
+        self.head_camera.attach(self.robot.links[0], offset_T)
 
         # build
         self.scene.build(n_envs=num_envs)
@@ -134,6 +176,12 @@ class Go2Env:
         target_dof_pos = exec_actions * self.env_cfg["action_scale"] + self.default_dof_pos
         self.robot.control_dofs_position(target_dof_pos, self.motor_dofs)
         self.scene.step()
+
+        if hasattr(self, "follower_camera"):
+            self.follower_camera.render()
+        
+        if hasattr(self, "head_camera"):
+            self.head_camera.render(depth=True, segmentation=True, normal=True)
 
         # update buffers
         self.episode_length_buf += 1
