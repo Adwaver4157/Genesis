@@ -236,11 +236,16 @@ class Camera(RBC):
                 cv2.imshow(f"Genesis - Camera {self._idx} [Normal]", normal_arr[..., [2, 1, 0]])
 
             cv2.waitKey(1)
+        else:
+            depth_img = None
 
         if self._in_recording and rgb_arr is not None:
             self._recorded_imgs.append(rgb_arr)
-        if self._in_recording and depth_arr is not None:
-            processed_depth = cv2.cvtColor(depth_arr, cv2.COLOR_GRAY2RGB)
+        # if self._in_recording and depth_arr is not None:
+        #     processed_depth = cv2.cvtColor(depth_arr, cv2.COLOR_GRAY2RGB)
+        #     self._recorded_depths.append(processed_depth)
+        if self._in_recording and depth_img is not None:
+            processed_depth = cv2.cvtColor(depth_img, cv2.COLOR_GRAY2RGB)
             self._recorded_depths.append(processed_depth)
         if self._in_recording and seg_idxc_arr is not None:
             self._recorded_segs.append(seg_color_arr)

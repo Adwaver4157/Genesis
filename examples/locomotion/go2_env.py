@@ -51,13 +51,37 @@ class Go2Env:
         )
 
         # add plain
-        self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", pos=(0,0,0), fixed=True)) # OK1
+        # self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", pos=(0,0,0), fixed=True)) # OK1
         # self.scene.add_entity(gs.morphs.Mesh(file="stair/STAIRS.stl", pos=(2,0,0), euler=(0,0,-90), fixed=True, scale=0.2))
-        self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(23,-0.2,0.8), fixed=True, scale=1.0)) # NG1
+        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(20,-0.2,0.8), fixed=True, scale=1.0, convexify=False)) # NG1
         # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(23,-0.2,0.5), fixed=True, scale=1.0))
         # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(23,-0.2,-10), fixed=True, scale=1.0)) # OK1
         # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(0,0,0), fixed=True, scale=10.0))
-        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(0,0,0), fixed=True, scale=2.0)) # NG2
+        # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_1/mesh.obj", pos=(0,0.5,0.5), fixed=True, scale=1.0, convexify=False)) # NG2
+        # self.scene.add_entity(gs.morphs.Terrain(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(0,0,-0.1)))
+        # horizontal_scale = 0.25
+        # vertical_scale = 0.005
+        # height_field = np.zeros([40, 40])
+        # heights_range = np.arange(-10, 20, 10)
+        # height_field[5:35, 5:35] = np.random.choice(heights_range, (30, 30))
+        # ########################## entities ##########################
+        # terrain = self.scene.add_entity(
+        #     morph=gs.morphs.Terrain(
+        #         horizontal_scale=horizontal_scale,
+        #         vertical_scale=vertical_scale,
+        #         height_field=height_field,
+        #         pos=(-5, -5, 0.),
+        #     ),
+        # )
+        horizontal_scale = 0.25
+        vertical_scale = 0.005
+        self.scene.add_entity(
+            morph=gs.morphs.Terrain(
+                horizontal_scale=horizontal_scale,
+                vertical_scale=vertical_scale,
+                pos=(-15, -15, 0.),
+            ),
+        )
 
         # add robot
         self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=self.device)
