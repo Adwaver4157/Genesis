@@ -668,6 +668,7 @@ class Terrain(Morph):
             "stairs_terrain",
             "pyramid_stairs_terrain",
             "stepping_stones_terrain",
+            "holey_terrain",
         ]
 
         if self.height_field is not None:

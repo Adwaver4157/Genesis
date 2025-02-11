@@ -27,7 +27,7 @@ def main():
         obs_cfg=obs_cfg,
         reward_cfg=reward_cfg,
         command_cfg=command_cfg,
-        show_viewer=True,
+        show_viewer=False,
     )
 
     runner = OnPolicyRunner(env, train_cfg, log_dir, device="cuda:0")
@@ -39,6 +39,7 @@ def main():
     # RGB, depth, segmentation, normal
     # rgb, depth, segmentation, normal = env.cam.render(depth=True, segmentation=True, normal=True)
     # env.cam.start_recording()
+    env.fixed_camera.start_recording()
     env.follower_camera.start_recording()
     env.head_camera.start_recording()
     steps = 100
@@ -57,8 +58,9 @@ def main():
             if s >= 400:
                 break
     # env.cam.stop_recording(save_to_filename='video.mp4', fps=60)
-    env.follower_camera.stop_recording(save_to_filename='logs/videos/follow_video_get_in_mesh_failure.mp4', fps=60)
-    env.head_camera.stop_recording(save_to_filename='logs/videos/head_video_get_in_mesh_failure.mp4', fps=60)
+    env.fixed_camera.stop_recording(save_to_filename='logs/videos/video_others.mp4', fps=60)
+    env.follower_camera.stop_recording(save_to_filename='logs/videos/follow_video_others.mp4', fps=60)
+    env.head_camera.stop_recording(save_to_filename='logs/videos/head_video_others.mp4', fps=60)
 
 if __name__ == "__main__":
     main()

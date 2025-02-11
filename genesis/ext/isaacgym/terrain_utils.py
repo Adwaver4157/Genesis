@@ -325,6 +325,99 @@ def stepping_stones_terrain(terrain, stone_size, stone_distance, max_height, pla
     return terrain
 
 
+def holey_terrain(terrain,
+                hole_count,
+                hole_size_range,
+                hole_depth_range,
+                platform_size=1.0,
+                ground_level=0):
+    """
+    改良版 穴あき環境生成関数
+
+    Parameters:
+        terrain: 地形オブジェクト  
+            以下の属性が必要です：
+                - width: グリッドの横方向セル数
+                - length: グリッドの縦方向セル数
+                - horizontal_scale: 横方向のスケール（1セルあたりのメートル数）
+                - vertical_scale: 縦方向のスケール（1グリッド単位あたりのメートル数）
+                - height_field_raw: 2D numpy array（地形の高さ情報を保持）
+        hole_count (int): 生成する穴の個数
+        hole_size_range (tuple of float): (min_size, max_size) 穴のサイズの範囲 [メートル]
+        hole_depth_range (tuple of float): (min_depth, max_depth) 穴の深さの範囲 [メートル]  
+            （例：min_depth=1.0, max_depth=5.0 とすれば、各穴は ground_level より 1～5 メートル下になる）
+        platform_size (float): 地形中央の平らなプラットフォームのサイズ [メートル]
+        ground_level (float): 地形全体の基本となる床の高さ
+
+    Returns:
+        terrain: 穴やプラットフォームが設定された更新後の地形オブジェクト
+    """
+    # 1. 地形全体を ground_level で初期化
+    terrain.height_field_raw[:, :] = ground_level
+
+    # 2. 地形全体の実サイズ [メートル] を計算
+    terrain_width_m  = terrain.width  * terrain.horizontal_scale
+    terrain_length_m = terrain.length * terrain.horizontal_scale
+
+    # 3. 指定した個数だけ穴を生成
+    for _ in range(hole_count):
+        # 穴のサイズをレンジ内（メートル単位）でランダムに決定
+        hole_size_m = np.random.uniform(hole_size_range[0], hole_size_range[1])
+        # 穴の深さ（ground_level からの差・正の値）をレンジ内でランダムに決定
+        hole_depth_m = np.random.uniform(hole_depth_range[0], hole_depth_range[1])
+        # 穴の設定する高さは ground_level より下（グリッド単位に変換）
+        hole_height = ground_level - (hole_depth_m / terrain.vertical_scale)
+
+        # 穴が地形からはみ出さないように、穴の中心を選ぶ際の余裕を確保
+        half_size_m = hole_size_m / 2.0
+        min_center_x = half_size_m
+        max_center_x = terrain_width_m - half_size_m
+        min_center_y = half_size_m
+        max_center_y = terrain_length_m - half_size_m
+
+        # 穴の中心位置を任意に選ぶ（メートル単位）
+        center_x_m = np.random.uniform(min_center_x, max_center_x)
+        center_y_m = np.random.uniform(min_center_y, max_center_y)
+
+        # 中心位置をグリッドインデックスに変換（浮動小数点値）
+        center_x_idx = center_x_m / terrain.horizontal_scale
+        center_y_idx = center_y_m / terrain.horizontal_scale
+
+        # 穴のサイズをグリッド単位に変換
+        half_size_cells = (hole_size_m / 2.0) / terrain.horizontal_scale
+
+        # 穴のグリッド上での範囲を決定（左右・上下のインデックス）
+        x_start = int(np.floor(center_x_idx - half_size_cells))
+        x_end   = int(np.ceil (center_x_idx + half_size_cells))
+        y_start = int(np.floor(center_y_idx - half_size_cells))
+        y_end   = int(np.ceil (center_y_idx + half_size_cells))
+
+        # グリッド範囲を terrain のサイズ内にクリップ
+        x_start = max(0, x_start)
+        x_end   = min(terrain.width, x_end)
+        y_start = max(0, y_start)
+        y_end   = min(terrain.length, y_end)
+
+        # 選択した範囲を穴の高さに設定
+        terrain.height_field_raw[x_start:x_end, y_start:y_end] = hole_height
+
+    # 4. 中央部に平らなプラットフォームを確保（穴で上書きされないよう後処理）
+    platform_half_m = platform_size / 2.0
+    center_x_m = terrain_width_m / 2.0
+    center_y_m = terrain_length_m / 2.0
+
+    # プラットフォームのグリッド上での範囲を計算
+    platform_x_start = int(np.floor((center_x_m - platform_half_m) / terrain.horizontal_scale))
+    platform_x_end   = int(np.ceil ((center_x_m + platform_half_m) / terrain.horizontal_scale))
+    platform_y_start = int(np.floor((center_y_m - platform_half_m) / terrain.horizontal_scale))
+    platform_y_end   = int(np.ceil ((center_y_m + platform_half_m) / terrain.horizontal_scale))
+
+    # プラットフォーム領域を ground_level に戻す
+    terrain.height_field_raw[platform_x_start:platform_x_end, platform_y_start:platform_y_end] = ground_level
+
+    return terrain
+
+
 def convert_heightfield_to_trimesh(height_field_raw, horizontal_scale, vertical_scale, slope_threshold=None):
     """
     Convert a heightfield array to a triangle mesh represented by vertices and triangles.

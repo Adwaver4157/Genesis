@@ -237,7 +237,13 @@ class Camera(RBC):
 
             cv2.waitKey(1)
         else:
-            depth_img = None
+            if depth:
+                depth_min = depth_arr.min()
+                depth_max = depth_arr.max()
+                depth_normalized = (depth_arr - depth_min) / (depth_max - depth_min)
+                # closer objects appear brighter
+                depth_normalized = 1 - depth_normalized
+                depth_img = (depth_normalized * 255).astype(np.uint8)
 
         if self._in_recording and rgb_arr is not None:
             self._recorded_imgs.append(rgb_arr)

@@ -43,7 +43,7 @@ def main():
             vertical_scale=vertical_scale,
             subterrain_types=[
                 ["flat_terrain", "random_uniform_terrain"],
-                ["pyramid_sloped_terrain", "discrete_obstacles_terrain"],
+                ["stepping_stones_terrain", "holey_terrain"],
             ],
         ),
     )

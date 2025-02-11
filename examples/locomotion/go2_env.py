@@ -75,10 +75,22 @@ class Go2Env:
         # )
         horizontal_scale = 0.25
         vertical_scale = 0.005
+        # self.scene.add_entity(
+        #     morph=gs.morphs.Terrain(
+        #         horizontal_scale=horizontal_scale,
+        #         vertical_scale=vertical_scale,
+        #         pos=(-15, -15, 0.),
+        #     ),
+        # )
         self.scene.add_entity(
             morph=gs.morphs.Terrain(
+                n_subterrains=(2, 2),
                 horizontal_scale=horizontal_scale,
                 vertical_scale=vertical_scale,
+                subterrain_types=[
+                    ["flat_terrain", "random_uniform_terrain"],
+                    ["stepping_stones_terrain", "holey_terrain"],
+                ],
                 pos=(-15, -15, 0.),
             ),
         )
@@ -96,24 +108,24 @@ class Go2Env:
         )
 
         # add camera
-        # self.cam = self.scene.add_camera(
-        #     res    = (1280, 960),
-        #     pos    = (3.5, 0.0, 2.5),
-        #     lookat = (0, 0, 0.5),
-        #     fov    = 30,
-        #     GUI    = True
-        # )
+        self.fixed_camera = self.scene.add_camera(
+            res    = (1280, 960),
+            pos    = (3.5, 0.0, 30),
+            lookat = (0, 0, 0.5),
+            fov    = 30,
+            GUI    = False
+        )
 
         self.follower_camera = self.scene.add_camera(res=(640,480),
                                 pos=(-1, 3.0, 2),
                                 lookat=(0.0, 0.0, 0.5),
                                 fov=40,
-                                GUI=True)
+                                GUI=False)
         # follow the robot at a fixed height and orientation 
         # self.follower_camera.follow_entity(self.robot, fixed_axis=(None, None, 0.5), smoothing=0.5, fix_orientation=True)
         self.follower_camera.follow_entity(self.robot, fixed_axis=(None, None, None), smoothing=0.5, fix_orientation=False)
 
-        self.head_camera = self.scene.add_camera(res=(640,480), pos=(0.0, 0.0, 0.5), lookat=(0.0, 0.0, 0.5), fov=40,GUI=True)
+        self.head_camera = self.scene.add_camera(res=(640,480), pos=(0.0, 0.0, 0.5), lookat=(0.0, 0.0, 0.5), fov=40,GUI=False)
         theta_x = np.deg2rad(90)
         theta_y = np.deg2rad(-90)
         # theta_z = np.deg2rad(90)
@@ -205,11 +217,14 @@ class Go2Env:
         self.robot.control_dofs_position(target_dof_pos, self.motor_dofs)
         self.scene.step()
 
+        if hasattr(self, "fixed_camera"):
+            self.fixed_camera.render(depth=True, segmentation=True, normal=True, colorize_seg=True)
+
         if hasattr(self, "follower_camera"):
-            self.follower_camera.render(depth=True, segmentation=True, normal=True)
+            self.follower_camera.render(depth=True, segmentation=True, normal=True, colorize_seg=True)
         
         if hasattr(self, "head_camera"):
-            self.head_camera.render(depth=True, segmentation=True, normal=True)
+            self.head_camera.render(depth=True, segmentation=True, normal=True, colorize_seg=True)
 
         # update buffers
         self.episode_length_buf += 1

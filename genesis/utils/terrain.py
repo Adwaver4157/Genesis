@@ -116,6 +116,16 @@ def parse_terrain(morph: Terrain, surface):
                         platform_size=0.0,
                     ).height_field_raw
 
+                elif subterrain_type == "holey_terrain":
+                    subterrain_height_field = isaacgym_terrain_utils.holey_terrain(
+                        new_subterrain,
+                        hole_count=45,
+                        hole_size_range=(0.01, 0.6),
+                        hole_depth_range=(0.01, 1.0),
+                        platform_size=1.0,
+                        ground_level=0
+                    ).height_field_raw
+
                 else:
                     gs.raise_exception(f"Unsupported subterrain type: {subterrain_type}")
 
