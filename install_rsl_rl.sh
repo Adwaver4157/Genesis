@@ -2,8 +2,8 @@
 
 # Install rsl_rl.
 cd /root/
-git clone https://github.com/leggedrobotics/rsl_rl
-cd rsl_rl && git checkout v1.0.2 && pip install -e .
+git clone https://github.com/Adwaver4157/rsl_rl.git
+cd rsl_rl && git checkout feature/add_vis_encoder && pip install -e .
 
 # Install tensorboard.
 pip install tensorboard

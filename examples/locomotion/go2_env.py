@@ -15,6 +15,7 @@ class Go2Env:
 
         self.num_envs = num_envs
         self.num_obs = obs_cfg["num_obs"]
+        self.img_obs_dim = obs_cfg["img_obs_dim"]
         self.num_privileged_obs = None
         self.num_actions = env_cfg["num_actions"]
         self.num_commands = command_cfg["num_commands"]
@@ -116,7 +117,7 @@ class Go2Env:
             GUI    = False
         )
 
-        self.follower_camera = self.scene.add_camera(res=(640,480),
+        self.follower_camera = self.scene.add_camera(res=(320,240),
                                 pos=(-1, 3.0, 2),
                                 lookat=(0.0, 0.0, 0.5),
                                 fov=40,
@@ -125,7 +126,9 @@ class Go2Env:
         # self.follower_camera.follow_entity(self.robot, fixed_axis=(None, None, 0.5), smoothing=0.5, fix_orientation=True)
         self.follower_camera.follow_entity(self.robot, fixed_axis=(None, None, None), smoothing=0.5, fix_orientation=False)
 
-        self.head_camera = self.scene.add_camera(res=(640,480), pos=(0.0, 0.0, 0.5), lookat=(0.0, 0.0, 0.5), fov=40,GUI=False)
+        self.head_cameras = []
+        for i in range(num_envs):
+            self.head_cameras.append(self.scene.add_camera(res=(320,240), pos=(0.0, 0.0, 0.5), lookat=(0.0, 0.0, 0.5), fov=40,GUI=False))
         theta_x = np.deg2rad(90)
         theta_y = np.deg2rad(-90)
         # theta_z = np.deg2rad(90)
@@ -155,7 +158,8 @@ class Go2Env:
         # import pdb; pdb.set_trace()
         # import pdb; pdb.set_trace()
         offset_T = R @ offset_T  # オフセット行列にZ回転を適用
-        self.head_camera.attach(self.robot.links[0], offset_T)
+        for i in range(num_envs):
+            self.head_cameras[i].attach(self.robot, offset_T, i)
 
         # build
         self.scene.build(n_envs=num_envs)
@@ -182,6 +186,7 @@ class Go2Env:
             self.num_envs, 1
         )
         self.obs_buf = torch.zeros((self.num_envs, self.num_obs), device=self.device, dtype=gs.tc_float)
+        self.img_obs_buf = torch.zeros((self.num_envs, *self.img_obs_dim), device=self.device, dtype=gs.tc_float)
         self.rew_buf = torch.zeros((self.num_envs,), device=self.device, dtype=gs.tc_float)
         self.reset_buf = torch.ones((self.num_envs,), device=self.device, dtype=gs.tc_int)
         self.episode_length_buf = torch.zeros((self.num_envs,), device=self.device, dtype=gs.tc_int)
@@ -218,13 +223,28 @@ class Go2Env:
         self.scene.step()
 
         if hasattr(self, "fixed_camera"):
-            self.fixed_camera.render(depth=True, segmentation=True, normal=True, colorize_seg=True)
+            # fixed_rgb, fixed_depth, fixed_seg, fixed_normal = self.fixed_camera.render(depth=True, segmentation=True, normal=True, colorize_seg=True)
+            self.fixed_camera.render()
 
         if hasattr(self, "follower_camera"):
-            self.follower_camera.render(depth=True, segmentation=True, normal=True, colorize_seg=True)
-        
-        if hasattr(self, "head_camera"):
-            self.head_camera.render(depth=True, segmentation=True, normal=True, colorize_seg=True)
+            # follow_rgb, follow_depth, follow_seg, follow_normal = self.follower_camera.render(depth=True, segmentation=True, normal=True, colorize_seg=True)
+            self.follower_camera.render()
+
+        if hasattr(self, "head_cameras"):
+            head_rgbs = []
+            head_depths = []
+            # head_segs = []
+            # head_normals = []
+            for head_camera in self.head_cameras:
+                head_rgb, head_depth, head_seg, head_normal = head_camera.render(depth=True, segmentation=False, normal=False, colorize_seg=False)
+                head_rgbs.append(head_rgb)
+                head_depths.append(head_depth)
+                # head_segs.append(head_seg)
+                # head_normals.append(head_normal)
+            head_rgbs = np.array(head_rgbs)
+            head_depths = np.array(head_depths)
+            # head_segs = np.array(head_segs)
+            # head_normals = np.array(head_normals)
 
         # update buffers
         self.episode_length_buf += 1
@@ -279,13 +299,32 @@ class Go2Env:
             axis=-1,
         )
 
+        import cv2
+        def resize_batch(batch, new_size):
+            return np.array([cv2.resize(img, (new_size[1], new_size[0]), interpolation=cv2.INTER_LINEAR) for img in batch])
+        # リサイズを適用する関数
+        def resize_depth_batch(depth_batch, new_size):
+            resized_batch = np.zeros((depth_batch.shape[0], new_size[0], new_size[1]), dtype=np.float32)
+            for i in range(depth_batch.shape[0]):
+                resized_batch[i] = cv2.resize(depth_batch[i], (new_size[1], new_size[0]), interpolation=cv2.INTER_NEAREST)
+            return resized_batch
+        resized_head_rgbs = resize_batch(head_rgbs, (128, 128))
+        resized_head_depths = resize_depth_batch(head_depths, (128, 128))
+        self.img_obs_buf = torch.cat(
+            [
+                torch.from_numpy(resized_head_rgbs.copy()).permute(0, 3, 1, 2).float() / 255.0,
+                torch.from_numpy(resized_head_depths.copy()).unsqueeze(1).float() / 255.0,
+            ],
+            axis=1,
+        ) 
+
         self.last_actions[:] = self.actions[:]
         self.last_dof_vel[:] = self.dof_vel[:]
 
-        return self.obs_buf, None, self.rew_buf, self.reset_buf, self.extras
+        return self.obs_buf, None, self.rew_buf, self.reset_buf, self.extras, self.img_obs_buf
 
     def get_observations(self):
-        return self.obs_buf
+        return self.obs_buf, self.img_obs_buf
 
     def get_privileged_observations(self):
         return None

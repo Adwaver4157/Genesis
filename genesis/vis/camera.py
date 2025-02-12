@@ -123,9 +123,10 @@ class Camera(RBC):
         self._is_built = True
         self.set_pose(self._transform, self._pos, self._lookat, self._up)
 
-    def attach(self, rigid_link, offset_T):
+    def attach(self, rigid_link, offset_T, env_idx=0):
         self._attached_link = rigid_link
         self._attached_offset_T = offset_T
+        self._attached_env_idx = env_idx
 
     def detach(self):
         self._attached_link = None
@@ -135,11 +136,11 @@ class Camera(RBC):
     def move_to_attach(self):
         if self._attached_link is None:
             gs.raise_exception(f"The camera hasn't been mounted!")
-        if self._visualizer._scene.n_envs > 1:
-            gs.raise_exception(f"Mounted camera not supported in parallel simulation!")
+        # if self._visualizer._scene.n_envs > 1:
+        #     gs.raise_exception(f"Mounted camera not supported in parallel simulation!")
 
-        link_pos = self._attached_link.get_pos().cpu().numpy()
-        link_quat = self._attached_link.get_quat().cpu().numpy()
+        link_pos = self._attached_link.get_pos([self._attached_env_idx]).cpu().numpy()
+        link_quat = self._attached_link.get_quat([self._attached_env_idx]).cpu().numpy()
         link_T = gu.trans_quat_to_T(link_pos, link_quat)
         transform = link_T[0] @ self._attached_offset_T
         # import pdb; pdb.set_trace()
