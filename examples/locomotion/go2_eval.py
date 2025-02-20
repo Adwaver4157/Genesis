@@ -35,20 +35,22 @@ def main():
     runner.load(resume_path)
     policy = runner.get_inference_policy(device="cuda:0")
 
-    obs, _ = env.reset()
+    obs, _, img_obs = env.reset()
     # RGB, depth, segmentation, normal
     # rgb, depth, segmentation, normal = env.cam.render(depth=True, segmentation=True, normal=True)
     # env.cam.start_recording()
     env.fixed_camera.start_recording()
     env.follower_camera.start_recording()
-    env.head_camera.start_recording()
+    # env.head_camera.start_recording()
+    for i in range(len(env.head_cameras)):
+        env.head_cameras[i].start_recording()
     steps = 100
     s = 0
     with torch.no_grad():
         while True:
             # env.cam.render()
-            actions = policy(obs)
-            obs, _, rews, dones, infos = env.step(actions)
+            actions = policy((obs.to("cuda:0"), img_obs.to("cuda:0")))
+            obs, _, rews, dones, infos, img_obs = env.step(actions)
             s += 1
             print(s)
             # if s >= steps:
@@ -60,12 +62,14 @@ def main():
     # env.cam.stop_recording(save_to_filename='video.mp4', fps=60)
     env.fixed_camera.stop_recording(save_to_filename='logs/videos/video_others.mp4', fps=60)
     env.follower_camera.stop_recording(save_to_filename='logs/videos/follow_video_others.mp4', fps=60)
-    env.head_camera.stop_recording(save_to_filename='logs/videos/head_video_others.mp4', fps=60)
+    # env.head_camera.stop_recording(save_to_filename='logs/videos/head_video_others.mp4', fps=60)
+    for i in range(len(env.head_cameras)):
+        env.head_cameras[i].stop_recording(save_to_filename=f'logs/videos/head_video_others_{i}.mp4', fps=60)
 
 if __name__ == "__main__":
     main()
 
 """
 # evaluation
-python examples/locomotion/go2_eval.py -e go2-walking -v --ckpt 100
+python examples/locomotion/go2_eval.py -e go2-walking --ckpt 100
 """

@@ -8,6 +8,37 @@ from genesis.utils.geom import quat_to_xyz, transform_by_quat, inv_quat, transfo
 def gs_rand_float(lower, upper, shape, device):
     return (upper - lower) * torch.rand(size=shape, device=device) + lower
 
+import numpy as np
+
+def compute_agent_centers(field_size: float, num_agents: int):
+    """
+    正方形のfieldをエージェント数分だけ等しく正方形に分割し、
+    各エージェントの領域の中心座標を計算する。
+    
+    :param field_size: フィールドの一辺の長さ
+    :param num_agents: エージェントの数（完全な平方数である必要がある）
+    :return: 各エージェント領域の中心座標のリスト
+    """
+    # num_agents が完全な平方数であることを確認
+    grid_size = int(np.sqrt(num_agents))
+    if grid_size ** 2 != num_agents:
+        raise ValueError("num_agents must be a perfect square (e.g., 4, 9, 16, ...).")
+    
+    # 各小領域の一辺の長さ
+    cell_size = field_size / grid_size
+    
+    # 中心座標を計算（フィールドの中心を (0,0) にする）
+    centers = []
+    offset = 0
+    # offset = field_size / 2
+    for i in range(grid_size):
+        for j in range(grid_size):
+            center_x = (j + 0.5) * cell_size - offset
+            center_y = (i + 0.5) * cell_size - offset
+            centers.append((center_x, center_y, 0.42))
+    
+    return centers
+
 
 class Go2Env:
     def __init__(self, num_envs, env_cfg, obs_cfg, reward_cfg, command_cfg, show_viewer=False, device="cuda"):
@@ -41,7 +72,7 @@ class Go2Env:
                 camera_lookat=(0.0, 0.0, 0.5),
                 camera_fov=40,
             ),
-            vis_options=gs.options.VisOptions(n_rendered_envs=1),
+            vis_options=gs.options.VisOptions(n_rendered_envs=None),
             rigid_options=gs.options.RigidOptions(
                 dt=self.dt,
                 constraint_solver=gs.constraint_solver.Newton,
@@ -92,7 +123,7 @@ class Go2Env:
                     ["flat_terrain", "random_uniform_terrain"],
                     ["stepping_stones_terrain", "holey_terrain"],
                 ],
-                pos=(-15, -15, 0.),
+                pos=(0, 0, 0.),
             ),
         )
 
@@ -108,10 +139,16 @@ class Go2Env:
             ),
         )
 
+        # calc center of agents 
+        field_size = 12*2
+        num_agents = 4
+        self.base_init_poses = torch.tensor(compute_agent_centers(field_size, num_agents), device=self.device)
+        print(self.base_init_poses)
+
         # add camera
         self.fixed_camera = self.scene.add_camera(
             res    = (1280, 960),
-            pos    = (3.5, 0.0, 30),
+            pos    = (3.5, 0.0, 60),
             lookat = (0, 0, 0.5),
             fov    = 30,
             GUI    = False
@@ -344,7 +381,8 @@ class Go2Env:
         )
 
         # reset base
-        self.base_pos[envs_idx] = self.base_init_pos
+        # self.base_pos[envs_idx] = self.base_init_pos
+        self.base_pos[envs_idx] = self.base_init_poses[envs_idx]
         self.base_quat[envs_idx] = self.base_init_quat.reshape(1, -1)
         self.robot.set_pos(self.base_pos[envs_idx], zero_velocity=False, envs_idx=envs_idx)
         self.robot.set_quat(self.base_quat[envs_idx], zero_velocity=False, envs_idx=envs_idx)
@@ -371,7 +409,7 @@ class Go2Env:
     def reset(self):
         self.reset_buf[:] = True
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
-        return self.obs_buf, None
+        return self.obs_buf, None, self.img_obs_buf
 
     # ------------ reward functions----------------
     def _reward_tracking_lin_vel(self):

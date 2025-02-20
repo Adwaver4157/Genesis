@@ -245,6 +245,8 @@ class Camera(RBC):
                 # closer objects appear brighter
                 depth_normalized = 1 - depth_normalized
                 depth_img = (depth_normalized * 255).astype(np.uint8)
+            else:
+                depth_img = None
 
         if self._in_recording and rgb_arr is not None:
             self._recorded_imgs.append(rgb_arr)
