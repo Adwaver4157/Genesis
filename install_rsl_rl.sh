@@ -2,6 +2,7 @@
 
 # Install rsl_rl.
 cd /root/
+rm -rf rsl_rl
 git clone https://github.com/Adwaver4157/rsl_rl.git
 cd rsl_rl && git checkout feature/add_vis_encoder && pip install -e .
 
