@@ -32,6 +32,8 @@ def get_train_cfg(exp_name, max_iterations):
             "actor_hidden_dims": [512, 256, 128],
             "critic_hidden_dims": [512, 256, 128],
             "init_noise_std": 1.0,
+            # "vision_obs": None,
+            "vision_obs": "depth",
         },
         "runner": {
             "algorithm_class_name": "PPO",
@@ -102,6 +104,9 @@ def get_cfgs():
         "action_scale": 0.25,
         "simulate_action_latency": True,
         "clip_actions": 100.0,
+        # visualization
+        "n_rendered_envs": 1,
+        # "n_rendered_envs": None,
     }
     obs_cfg = {
         "num_obs": 45,
@@ -111,7 +116,35 @@ def get_cfgs():
             "dof_pos": 1.0,
             "dof_vel": 0.05,
         },
-        "img_obs_dim": [4, 128, 128], # [C, H, W] rgb + depth
+        # "img_obs_dim": [4, 128, 128], # [C, H, W] rgb + depth
+        "img_obs_dim": [1, 224, 224],  # [C, H, W] depth
+    }
+    camera_cfg = {
+        "fixed_camera": {
+            "res":(1280, 960),
+            "pos":(10, 10, 10),
+            "lookat":(0, 0, 0.5),
+            "fov":30,
+            "GUI":False,
+            "use_depth": False
+        },
+        "follower_camera": {
+            "res":(224, 224),
+            "pos":(-1, 3.0, 2),
+            "lookat":(0.0, 0.0, 0.5),
+            "fov":30,
+            "GUI":False,
+            "use_depth": False
+        },
+        "head_camera": {
+            "res":(224, 224),
+            "pos":(0, 0, 0.5),
+            "lookat":(0, 0, 0.5),
+            "fov":30,
+            "GUI":False,
+            "use_rgb": False,
+            "use_depth": True
+        }
     }
     reward_cfg = {
         "tracking_sigma": 0.25,
@@ -133,7 +166,7 @@ def get_cfgs():
         "ang_vel_range": [0, 0],
     }
 
-    return env_cfg, obs_cfg, reward_cfg, command_cfg
+    return env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg
 
 
 def main():
@@ -146,7 +179,7 @@ def main():
     gs.init(logging_level="warning")
 
     log_dir = f"logs/{args.exp_name}"
-    env_cfg, obs_cfg, reward_cfg, command_cfg = get_cfgs()
+    env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg = get_cfgs()
     train_cfg = get_train_cfg(args.exp_name, args.max_iterations)
 
     if os.path.exists(log_dir):
@@ -154,7 +187,7 @@ def main():
     os.makedirs(log_dir, exist_ok=True)
 
     env = Go2Env(
-        num_envs=args.num_envs, env_cfg=env_cfg, obs_cfg=obs_cfg, reward_cfg=reward_cfg, command_cfg=command_cfg
+        num_envs=args.num_envs, env_cfg=env_cfg, obs_cfg=obs_cfg, camera_cfg=camera_cfg, reward_cfg=reward_cfg, command_cfg=command_cfg
     )
 
     runner = OnPolicyRunner(env, train_cfg, log_dir, device="cuda:0", vis=True)

@@ -8,7 +8,6 @@ from genesis.utils.geom import quat_to_xyz, transform_by_quat, inv_quat, transfo
 def gs_rand_float(lower, upper, shape, device):
     return (upper - lower) * torch.rand(size=shape, device=device) + lower
 
-import numpy as np
 
 def compute_agent_centers(field_size: float, num_agents: int):
     """
@@ -41,7 +40,7 @@ def compute_agent_centers(field_size: float, num_agents: int):
 
 
 class Go2Env:
-    def __init__(self, num_envs, env_cfg, obs_cfg, reward_cfg, command_cfg, show_viewer=False, device="cuda"):
+    def __init__(self, num_envs, env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg, show_viewer=False, device="cuda"):
         self.device = torch.device(device)
 
         self.num_envs = num_envs
@@ -57,11 +56,22 @@ class Go2Env:
 
         self.env_cfg = env_cfg
         self.obs_cfg = obs_cfg
+        self.camera_cfg = camera_cfg
         self.reward_cfg = reward_cfg
         self.command_cfg = command_cfg
 
         self.obs_scales = obs_cfg["obs_scales"]
         self.reward_scales = reward_cfg["reward_scales"]
+
+        self.fixed_camera_render_cfg = {"depth": camera_cfg["fixed_camera"]["use_depth"]}
+        del self.camera_cfg["fixed_camera"]["use_depth"]
+        if "follower_camera" in camera_cfg:
+            self.follower_camera_render_cfg = {"depth": camera_cfg["follower_camera"]["use_depth"]}
+            del self.camera_cfg["follower_camera"]["use_depth"]
+        if "head_camera" in camera_cfg:
+            self.head_camera_render = {"rgb": camera_cfg["head_camera"]["use_rgb"], "depth": camera_cfg["head_camera"]["use_depth"]}
+            del self.camera_cfg["head_camera"]["use_rgb"]
+            del self.camera_cfg["head_camera"]["use_depth"]
 
         # create scene
         self.scene = gs.Scene(
@@ -72,7 +82,7 @@ class Go2Env:
                 camera_lookat=(0.0, 0.0, 0.5),
                 camera_fov=40,
             ),
-            vis_options=gs.options.VisOptions(n_rendered_envs=None),
+            vis_options=gs.options.VisOptions(n_rendered_envs=self.env_cfg["n_rendered_envs"]),
             rigid_options=gs.options.RigidOptions(
                 dt=self.dt,
                 constraint_solver=gs.constraint_solver.Newton,
@@ -83,7 +93,9 @@ class Go2Env:
         )
 
         # add plain
+        # defalut plane
         # self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", pos=(0,0,0), fixed=True)) # OK1
+
         # self.scene.add_entity(gs.morphs.Mesh(file="stair/STAIRS.stl", pos=(2,0,0), euler=(0,0,-90), fixed=True, scale=0.2))
         # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(20,-0.2,0.8), fixed=True, scale=1.0, convexify=False)) # NG1
         # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(23,-0.2,0.5), fixed=True, scale=1.0))
@@ -114,15 +126,30 @@ class Go2Env:
         #         pos=(-15, -15, 0.),
         #     ),
         # )
+        # self.scene.add_entity(
+        #     morph=gs.morphs.Terrain(
+        #         n_subterrains=(2, 2),
+        #         horizontal_scale=horizontal_scale,
+        #         vertical_scale=vertical_scale,
+        #         subterrain_types=[
+        #             ["flat_terrain", "random_uniform_terrain"],
+        #             ["stepping_stones_terrain", "holey_terrain"],
+        #         ],
+        #         pos=(0, 0, 0.),
+        #     ),
+        # )
+        
+        # final terrain
+        num_fields = np.sqrt(num_envs)
+        assert num_fields.is_integer(), "num_envs must be a perfect square (e.g., 4, 9, 16, ...)."
+        num_fields = int(num_fields)
+        subterrain_types = [["holey_terrain"]*num_fields]*num_fields
         self.scene.add_entity(
             morph=gs.morphs.Terrain(
-                n_subterrains=(2, 2),
+                n_subterrains=(num_fields, num_fields),
                 horizontal_scale=horizontal_scale,
                 vertical_scale=vertical_scale,
-                subterrain_types=[
-                    ["flat_terrain", "random_uniform_terrain"],
-                    ["stepping_stones_terrain", "holey_terrain"],
-                ],
+                subterrain_types=subterrain_types,
                 pos=(0, 0, 0.),
             ),
         )
@@ -140,63 +167,59 @@ class Go2Env:
         )
 
         # calc center of agents 
-        field_size = 12*2
-        num_agents = 4
+        field_size = 12 * num_fields 
+        num_agents = num_envs
         self.base_init_poses = torch.tensor(compute_agent_centers(field_size, num_agents), device=self.device)
         print(self.base_init_poses)
 
-        # add camera
-        self.fixed_camera = self.scene.add_camera(
-            res    = (1280, 960),
-            pos    = (3.5, 0.0, 60),
-            lookat = (0, 0, 0.5),
-            fov    = 30,
-            GUI    = False
-        )
+        # add fixed camera
+        # self.fixed_camera = self.scene.add_camera(**self.camera_cfg["fixed_camera"],)
+        self.camera_cfg["fixed_camera"]["pos"] = (field_size/2, field_size/2, 20)
+        self.fixed_camera = self.scene.add_camera(**self.camera_cfg["fixed_camera"],)
 
-        self.follower_camera = self.scene.add_camera(res=(320,240),
-                                pos=(-1, 3.0, 2),
-                                lookat=(0.0, 0.0, 0.5),
-                                fov=40,
-                                GUI=False)
-        # follow the robot at a fixed height and orientation 
-        # self.follower_camera.follow_entity(self.robot, fixed_axis=(None, None, 0.5), smoothing=0.5, fix_orientation=True)
-        self.follower_camera.follow_entity(self.robot, fixed_axis=(None, None, None), smoothing=0.5, fix_orientation=False)
+        # add follower camera
+        if "follower_camera" in self.camera_cfg:
+            self.follower_camera = self.scene.add_camera(**self.camera_cfg["follower_camera"],)
+            # follow the robot at a fixed height and orientation 
+            self.follower_camera.follow_entity(self.robot, fixed_axis=(None, None, None), smoothing=0.5, fix_orientation=False)
 
-        self.head_cameras = []
-        for i in range(num_envs):
-            self.head_cameras.append(self.scene.add_camera(res=(320,240), pos=(0.0, 0.0, 0.5), lookat=(0.0, 0.0, 0.5), fov=40,GUI=False))
-        theta_x = np.deg2rad(90)
-        theta_y = np.deg2rad(-90)
-        # theta_z = np.deg2rad(90)
-        Rx = np.array([
-            [ 1, 0, 0, 0],
-            [ 0, np.cos(theta_x), -np.sin(theta_x), 0],
-            [ 0, np.sin(theta_x), np.cos(theta_y), 0],
-            [               0, 0,               0, 1]
-        ])
-        Ry = np.array([
-            [ np.cos(theta_y), 0, np.sin(theta_y), 0],
-            [               0, 1,               0, 0],
-            [-np.sin(theta_y), 0, np.cos(theta_y), 0],
-            [               0, 0,               0, 1]
-        ])
-        # Rz = np.array([
-        #     [ np.cos(theta_z), -np.sin(theta_z), 0, 0],
-        #     [ np.sin(theta_z),  np.cos(theta_z), 0, 0],
-        #     [               0,                0, 1, 0],
-        #     [               0,                0, 0, 1]
-        # ])
-        # 「Z軸回転 → Y軸回転」をまとめた回転行列
-        R = Rx @ Ry
-        offset_T = np.eye(4)
-        offset_T[:, 3] = [0, 0.1, -0.26, 1] # オフセット行列の平行移動成分を設定 y, z, -x world座標系(右手系)
-        # offset_T[0, 3] = 0.1
-        # import pdb; pdb.set_trace()
-        # import pdb; pdb.set_trace()
-        offset_T = R @ offset_T  # オフセット行列にZ回転を適用
-        for i in range(num_envs):
-            self.head_cameras[i].attach(self.robot, offset_T, i)
+        # add head cameras
+        if "head_camera" in self.camera_cfg:
+            self.head_cameras = []
+            for i in range(num_envs):
+                self.head_cameras.append(self.scene.add_camera(**self.camera_cfg["head_camera"]))
+            theta_x = np.deg2rad(90)
+            theta_y = np.deg2rad(-90)
+            # theta_z = np.deg2rad(90)
+            Rx = np.array([
+                [ 1, 0, 0, 0],
+                [ 0, np.cos(theta_x), -np.sin(theta_x), 0],
+                [ 0, np.sin(theta_x), np.cos(theta_y), 0],
+                [               0, 0,               0, 1]
+            ])
+            Ry = np.array([
+                [ np.cos(theta_y), 0, np.sin(theta_y), 0],
+                [               0, 1,               0, 0],
+                [-np.sin(theta_y), 0, np.cos(theta_y), 0],
+                [               0, 0,               0, 1]
+            ])
+            # Rz = np.array([
+            #     [ np.cos(theta_z), -np.sin(theta_z), 0, 0],
+            #     [ np.sin(theta_z),  np.cos(theta_z), 0, 0],
+            #     [               0,                0, 1, 0],
+            #     [               0,                0, 0, 1]
+            # ])
+            # 「Z軸回転 → Y軸回転」をまとめた回転行列
+            R = Rx @ Ry
+            offset_T = np.eye(4)
+            offset_T[:, 3] = [0, 0.1, -0.26, 1] # オフセット行列の平行移動成分を設定 y, z, -x world座標系(右手系)
+            # offset_T[0, 3] = 0.1
+            # import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
+            offset_T = R @ offset_T  # オフセット行列にZ回転を適用
+            for i in range(num_envs):
+                self.head_cameras[i].attach(self.robot, offset_T, i)
+
 
         # build
         self.scene.build(n_envs=num_envs)
@@ -261,11 +284,11 @@ class Go2Env:
 
         if hasattr(self, "fixed_camera"):
             # fixed_rgb, fixed_depth, fixed_seg, fixed_normal = self.fixed_camera.render(depth=True, segmentation=True, normal=True, colorize_seg=True)
-            self.fixed_camera.render()
+            self.fixed_camera.render(**self.fixed_camera_render_cfg)
 
         if hasattr(self, "follower_camera"):
             # follow_rgb, follow_depth, follow_seg, follow_normal = self.follower_camera.render(depth=True, segmentation=True, normal=True, colorize_seg=True)
-            self.follower_camera.render()
+            self.follower_camera.render(**self.follower_camera_render_cfg) 
 
         if hasattr(self, "head_cameras"):
             head_rgbs = []
@@ -273,12 +296,12 @@ class Go2Env:
             # head_segs = []
             # head_normals = []
             for head_camera in self.head_cameras:
-                head_rgb, head_depth, head_seg, head_normal = head_camera.render(depth=True, segmentation=False, normal=False, colorize_seg=False)
-                head_rgbs.append(head_rgb)
+                head_rgb, head_depth, head_seg, head_normal = head_camera.render(**self.head_camera_render)
+                # head_rgbs.append(head_rgb)
                 head_depths.append(head_depth)
                 # head_segs.append(head_seg)
                 # head_normals.append(head_normal)
-            head_rgbs = np.array(head_rgbs)
+            # head_rgbs = np.array(head_rgbs)
             head_depths = np.array(head_depths)
             # head_segs = np.array(head_segs)
             # head_normals = np.array(head_normals)
@@ -336,24 +359,26 @@ class Go2Env:
             axis=-1,
         )
 
-        import cv2
-        def resize_batch(batch, new_size):
-            return np.array([cv2.resize(img, (new_size[1], new_size[0]), interpolation=cv2.INTER_LINEAR) for img in batch])
-        # リサイズを適用する関数
-        def resize_depth_batch(depth_batch, new_size):
-            resized_batch = np.zeros((depth_batch.shape[0], new_size[0], new_size[1]), dtype=np.float32)
-            for i in range(depth_batch.shape[0]):
-                resized_batch[i] = cv2.resize(depth_batch[i], (new_size[1], new_size[0]), interpolation=cv2.INTER_NEAREST)
-            return resized_batch
-        resized_head_rgbs = resize_batch(head_rgbs, (128, 128))
-        resized_head_depths = resize_depth_batch(head_depths, (128, 128))
-        self.img_obs_buf = torch.cat(
-            [
-                torch.from_numpy(resized_head_rgbs.copy()).permute(0, 3, 1, 2).float() / 255.0,
-                torch.from_numpy(resized_head_depths.copy()).unsqueeze(1).float() / 255.0,
-            ],
-            axis=1,
-        ) 
+        if hasattr(self, "head_cameras"):
+            import cv2
+            def resize_batch(batch, new_size):
+                return np.array([cv2.resize(img, (new_size[1], new_size[0]), interpolation=cv2.INTER_LINEAR) for img in batch])
+            # リサイズを適用する関数
+            def resize_depth_batch(depth_batch, new_size):
+                resized_batch = np.zeros((depth_batch.shape[0], new_size[0], new_size[1]), dtype=np.float32)
+                for i in range(depth_batch.shape[0]):
+                    resized_batch[i] = cv2.resize(depth_batch[i], (new_size[1], new_size[0]), interpolation=cv2.INTER_NEAREST)
+                return resized_batch
+            # resized_head_rgbs = resize_batch(head_rgbs, (128, 128))
+            resized_head_depths = resize_depth_batch(head_depths, (224, 224))
+            # self.img_obs_buf = torch.cat(
+            #     [
+            #         torch.from_numpy(resized_head_rgbs.copy()).permute(0, 3, 1, 2).float() / 255.0,
+            #         torch.from_numpy(resized_head_depths.copy()).unsqueeze(1).float() / 255.0,
+            #     ],
+            #     axis=1,
+            # ) 
+            self.img_obs_buf = torch.from_numpy(resized_head_depths.copy()).unsqueeze(1).float() / 255.0
 
         self.last_actions[:] = self.actions[:]
         self.last_dof_vel[:] = self.dof_vel[:]
