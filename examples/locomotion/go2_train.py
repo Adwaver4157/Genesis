@@ -174,6 +174,7 @@ def main():
     parser.add_argument("-e", "--exp_name", type=str, default="go2-walking")
     parser.add_argument("-B", "--num_envs", type=int, default=10)
     parser.add_argument("--max_iterations", type=int, default=5)
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
     gs.init(logging_level="warning")
@@ -186,8 +187,12 @@ def main():
         shutil.rmtree(log_dir)
     os.makedirs(log_dir, exist_ok=True)
 
+    print(args.debug)
+    if args.debug:
+        del camera_cfg["head_camera"]
+        train_cfg["policy"]["vision_obs"] = None
     env = Go2Env(
-        num_envs=args.num_envs, env_cfg=env_cfg, obs_cfg=obs_cfg, camera_cfg=camera_cfg, reward_cfg=reward_cfg, command_cfg=command_cfg
+        num_envs=args.num_envs, env_cfg=env_cfg, obs_cfg=obs_cfg, camera_cfg=camera_cfg, reward_cfg=reward_cfg, command_cfg=command_cfg, debug=args.debug
     )
 
     runner = OnPolicyRunner(env, train_cfg, log_dir, device="cuda:0", vis=True)

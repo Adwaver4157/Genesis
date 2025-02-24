@@ -40,8 +40,9 @@ def compute_agent_centers(field_size: float, num_agents: int):
 
 
 class Go2Env:
-    def __init__(self, num_envs, env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg, show_viewer=False, device="cuda"):
+    def __init__(self, num_envs, env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg, show_viewer=False, device="cuda", debug=False):
         self.device = torch.device(device)
+        self.debug = debug
 
         self.num_envs = num_envs
         self.num_obs = obs_cfg["num_obs"]
@@ -94,7 +95,8 @@ class Go2Env:
 
         # add plain
         # defalut plane
-        # self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", pos=(0,0,0), fixed=True)) # OK1
+        if self.debug:
+            self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", pos=(0,0,0), fixed=True)) # OK1
 
         # self.scene.add_entity(gs.morphs.Mesh(file="stair/STAIRS.stl", pos=(2,0,0), euler=(0,0,-90), fixed=True, scale=0.2))
         # self.scene.add_entity(gs.morphs.Mesh(file="terrain-generator/results/generated_terrain/mesh_0/mesh.obj", pos=(20,-0.2,0.8), fixed=True, scale=1.0, convexify=False)) # NG1
@@ -117,8 +119,8 @@ class Go2Env:
         #         pos=(-5, -5, 0.),
         #     ),
         # )
-        horizontal_scale = 0.25
-        vertical_scale = 0.005
+        # horizontal_scale = 0.25
+        # vertical_scale = 0.005
         # self.scene.add_entity(
         #     morph=gs.morphs.Terrain(
         #         horizontal_scale=horizontal_scale,
@@ -140,19 +142,22 @@ class Go2Env:
         # )
         
         # final terrain
-        num_fields = np.sqrt(num_envs)
-        assert num_fields.is_integer(), "num_envs must be a perfect square (e.g., 4, 9, 16, ...)."
-        num_fields = int(num_fields)
-        subterrain_types = [["holey_terrain"]*num_fields]*num_fields
-        self.scene.add_entity(
-            morph=gs.morphs.Terrain(
-                n_subterrains=(num_fields, num_fields),
-                horizontal_scale=horizontal_scale,
-                vertical_scale=vertical_scale,
-                subterrain_types=subterrain_types,
-                pos=(0, 0, 0.),
-            ),
-        )
+        if not self.debug:
+            horizontal_scale = 0.25
+            vertical_scale = 0.005
+            num_fields = np.sqrt(num_envs)
+            assert num_fields.is_integer(), "num_envs must be a perfect square (e.g., 4, 9, 16, ...)."
+            num_fields = int(num_fields)
+            subterrain_types = [["holey_terrain"]*num_fields]*num_fields
+            self.scene.add_entity(
+                morph=gs.morphs.Terrain(
+                    n_subterrains=(num_fields, num_fields),
+                    horizontal_scale=horizontal_scale,
+                    vertical_scale=vertical_scale,
+                    subterrain_types=subterrain_types,
+                    pos=(0, 0, 0.),
+                ),
+            )
 
         # add robot
         self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=self.device)
@@ -167,15 +172,18 @@ class Go2Env:
         )
 
         # calc center of agents 
-        field_size = 12 * num_fields 
-        num_agents = num_envs
-        self.base_init_poses = torch.tensor(compute_agent_centers(field_size, num_agents), device=self.device)
-        print(self.base_init_poses)
+        if not self.debug:
+            field_size = 12 * num_fields 
+            num_agents = num_envs
+            self.base_init_poses = torch.tensor(compute_agent_centers(field_size, num_agents), device=self.device)
+            print(self.base_init_poses)
 
         # add fixed camera
-        # self.fixed_camera = self.scene.add_camera(**self.camera_cfg["fixed_camera"],)
-        self.camera_cfg["fixed_camera"]["pos"] = (field_size/2, field_size/2, 20)
-        self.fixed_camera = self.scene.add_camera(**self.camera_cfg["fixed_camera"],)
+        if self.debug:
+            self.fixed_camera = self.scene.add_camera(**self.camera_cfg["fixed_camera"],)
+        else:
+            self.camera_cfg["fixed_camera"]["pos"] = (field_size/2, field_size/2, 20)
+            self.fixed_camera = self.scene.add_camera(**self.camera_cfg["fixed_camera"],)
 
         # add follower camera
         if "follower_camera" in self.camera_cfg:
@@ -406,8 +414,10 @@ class Go2Env:
         )
 
         # reset base
-        # self.base_pos[envs_idx] = self.base_init_pos
-        self.base_pos[envs_idx] = self.base_init_poses[envs_idx]
+        if self.debug:
+            self.base_pos[envs_idx] = self.base_init_pos
+        else:
+            self.base_pos[envs_idx] = self.base_init_poses[envs_idx]
         self.base_quat[envs_idx] = self.base_init_quat.reshape(1, -1)
         self.robot.set_pos(self.base_pos[envs_idx], zero_velocity=False, envs_idx=envs_idx)
         self.robot.set_quat(self.base_quat[envs_idx], zero_velocity=False, envs_idx=envs_idx)
