@@ -305,11 +305,11 @@ class Go2Env:
             # head_normals = []
             for head_camera in self.head_cameras:
                 head_rgb, head_depth, head_seg, head_normal = head_camera.render(**self.head_camera_render)
-                # head_rgbs.append(head_rgb)
+                head_rgbs.append(head_rgb)
                 head_depths.append(head_depth)
                 # head_segs.append(head_seg)
                 # head_normals.append(head_normal)
-            # head_rgbs = np.array(head_rgbs)
+            head_rgbs = np.array(head_rgbs)
             head_depths = np.array(head_depths)
             # head_segs = np.array(head_segs)
             # head_normals = np.array(head_normals)
@@ -378,7 +378,7 @@ class Go2Env:
                     resized_batch[i] = cv2.resize(depth_batch[i], (new_size[1], new_size[0]), interpolation=cv2.INTER_NEAREST)
                 return resized_batch
             # resized_head_rgbs = resize_batch(head_rgbs, (128, 128))
-            resized_head_depths = resize_depth_batch(head_depths, (224, 224))
+            # resized_head_depths = resize_depth_batch(head_depths, (224, 224))
             # self.img_obs_buf = torch.cat(
             #     [
             #         torch.from_numpy(resized_head_rgbs.copy()).permute(0, 3, 1, 2).float() / 255.0,
@@ -386,7 +386,17 @@ class Go2Env:
             #     ],
             #     axis=1,
             # ) 
-            self.img_obs_buf = torch.from_numpy(resized_head_depths.copy()).unsqueeze(1).float() / 255.0
+            if self.head_camera_render["rgb"] and self.head_camera_render["depth"]:
+                self.img_obs_buf = torch.cat(
+                    [
+                        torch.from_numpy(head_rgbs.copy()).permute(0, 3, 1, 2).float() / 255.0,
+                        torch.from_numpy(head_depths.copy()).unsqueeze(1).float() / 255.0,
+                    ],
+                    axis=1,
+                ) 
+            elif self.head_camera_render["depth"]:
+                # self.img_obs_buf = torch.from_numpy(resized_head_depths.copy()).unsqueeze(1).float() / 255.0
+                self.img_obs_buf = torch.from_numpy(head_depths.copy()).unsqueeze(1).float() / 255.0
 
         self.last_actions[:] = self.actions[:]
         self.last_dof_vel[:] = self.dof_vel[:]

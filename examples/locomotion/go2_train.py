@@ -9,7 +9,7 @@ from rsl_rl.runners import OnPolicyRunner
 import genesis as gs
 
 
-def get_train_cfg(exp_name, max_iterations):
+def get_train_cfg(exp_name, max_iterations, vision_obs):
 
     train_cfg_dict = {
         "algorithm": {
@@ -32,8 +32,7 @@ def get_train_cfg(exp_name, max_iterations):
             "actor_hidden_dims": [512, 256, 128],
             "critic_hidden_dims": [512, 256, 128],
             "init_noise_std": 1.0,
-            # "vision_obs": None,
-            "vision_obs": "depth",
+            "vision_obs": vision_obs,
         },
         "runner": {
             "algorithm_class_name": "PPO",
@@ -58,7 +57,7 @@ def get_train_cfg(exp_name, max_iterations):
     return train_cfg_dict
 
 
-def get_cfgs():
+def get_cfgs(img_obs_resolution, vision_obs):
     env_cfg = {
         "num_actions": 12,
         # joint/link names
@@ -116,8 +115,7 @@ def get_cfgs():
             "dof_pos": 1.0,
             "dof_vel": 0.05,
         },
-        # "img_obs_dim": [4, 128, 128], # [C, H, W] rgb + depth
-        "img_obs_dim": [1, 224, 224],  # [C, H, W] depth
+        "img_obs_dim": [4 if vision_obs == "rgbd" else 1, img_obs_resolution[0], img_obs_resolution[1]], # [C, H, W] rgb + depth or depth
     }
     camera_cfg = {
         "fixed_camera": {
@@ -137,12 +135,12 @@ def get_cfgs():
             "use_depth": False
         },
         "head_camera": {
-            "res":(224, 224),
+            "res":img_obs_resolution,
             "pos":(0, 0, 0.5),
             "lookat":(0, 0, 0.5),
             "fov":30,
             "GUI":False,
-            "use_rgb": False,
+            "use_rgb": True,
             "use_depth": True
         }
     }
@@ -174,23 +172,31 @@ def main():
     parser.add_argument("-e", "--exp_name", type=str, default="go2-walking")
     parser.add_argument("-B", "--num_envs", type=int, default=10)
     parser.add_argument("--max_iterations", type=int, default=5)
+    parser.add_argument("--resolution", type=int, nargs=2, help="(h, w)", default=[224, 224])
+    parser.add_argument("--vision_obs", type=str, default=None, choices=["rgb", "depth", "rgbd", None])
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
     gs.init(logging_level="warning")
 
-    log_dir = f"logs/{args.exp_name}"
-    env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg = get_cfgs()
-    train_cfg = get_train_cfg(args.exp_name, args.max_iterations)
+    if args.debug or args.vision_obs is None:
+        log_dir = f"logs/{args.exp_name}-{args.num_envs}-no-vision"
+    else:
+        log_dir = f"logs/{args.exp_name}-{args.num_envs}-{args.resolution[0]}x{args.resolution[1]}-{args.vision_obs}"
+    env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg = get_cfgs(img_obs_resolution=args.resolution, vision_obs=args.vision_obs)
+    train_cfg = get_train_cfg(args.exp_name, args.max_iterations, args.vision_obs)
 
     if os.path.exists(log_dir):
         shutil.rmtree(log_dir)
     os.makedirs(log_dir, exist_ok=True)
 
     print(args.debug)
-    if args.debug:
+    print(args.vision_obs)
+    if args.debug or args.vision_obs is None:
+        print("No vision obs")
         del camera_cfg["head_camera"]
         train_cfg["policy"]["vision_obs"] = None
+
     env = Go2Env(
         num_envs=args.num_envs, env_cfg=env_cfg, obs_cfg=obs_cfg, camera_cfg=camera_cfg, reward_cfg=reward_cfg, command_cfg=command_cfg, debug=args.debug
     )
@@ -198,7 +204,7 @@ def main():
     runner = OnPolicyRunner(env, train_cfg, log_dir, device="cuda:0", vis=True)
 
     pickle.dump(
-        [env_cfg, obs_cfg, reward_cfg, command_cfg, train_cfg],
+        [env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg, train_cfg],
         open(f"{log_dir}/cfgs.pkl", "wb"),
     )
 
@@ -210,5 +216,5 @@ if __name__ == "__main__":
 
 """
 # training
-python examples/locomotion/go2_train.py -e go2-walking-test -B 10 --max_iterations 5
+python examples/locomotion/go2_train.py -e go2-walking-test -B 4 --max_iterations 5
 """
