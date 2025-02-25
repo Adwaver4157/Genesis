@@ -18,35 +18,39 @@ def main():
     gs.init()
 
     log_dir = f"logs/{args.exp_name}"
-    env_cfg, obs_cfg, reward_cfg, command_cfg, train_cfg = pickle.load(open(f"logs/{args.exp_name}/cfgs.pkl", "rb"))
+    env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg, train_cfg = pickle.load(open(f"logs/{args.exp_name}/cfgs.pkl", "rb"))
     reward_cfg["reward_scales"] = {}
-    camera_cfg = {
-        "fixed_camera": {
-            "res":(1280, 960),
-            "pos":(10, 10, 10),
-            "lookat":(0, 0, 0.5),
-            "fov":30,
-            "GUI":False,
-            "use_depth": False
-        },
-        "follower_camera": {
-            "res":(224, 224),
-            "pos":(-1, 3.0, 2),
-            "lookat":(0.0, 0.0, 0.5),
-            "fov":30,
-            "GUI":False,
-            "use_depth": False
-        },
-        "head_camera": {
-            "res":(224, 224),
-            "pos":(0, 0, 0.5),
-            "lookat":(0, 0, 0.5),
-            "fov":30,
-            "GUI":False,
-            "use_rgb": False,
-            "use_depth": True
-        }
-    }
+    # camera_cfg = {
+    #     "fixed_camera": {
+    #         "res":(1280, 960),
+    #         "pos":(10, 10, 10),
+    #         "lookat":(0, 0, 0.5),
+    #         "fov":30,
+    #         "GUI":False,
+    #         "use_depth": False
+    #     },
+    #     "follower_camera": {
+    #         "res":(224, 224),
+    #         "pos":(-1, 3.0, 2),
+    #         "lookat":(0.0, 0.0, 0.5),
+    #         "fov":30,
+    #         "GUI":False,
+    #         "use_depth": False
+    #     },
+    #     "head_camera": {
+    #         "res":(224, 224),
+    #         "pos":(0, 0, 0.5),
+    #         "lookat":(0, 0, 0.5),
+    #         "fov":30,
+    #         "GUI":False,
+    #         "use_rgb": False,
+    #         "use_depth": True
+    #     }
+    # }
+    camera_cfg["fixed_camera"]["use_depth"] = False
+    camera_cfg["follower_camera"]["use_depth"] = False
+    camera_cfg["head_camera"]["use_rgb"] = False
+    camera_cfg["head_camera"]["use_depth"] = True
     env = Go2Env(
         num_envs=1,
         env_cfg=env_cfg,
@@ -84,7 +88,7 @@ def main():
             #     env.reset()
             #     print("reset")
             #     s = 0
-            if s >= 1000:
+            if s >= 2000:
                 break
     # env.cam.stop_recording(save_to_filename='video.mp4', fps=60)
     env.fixed_camera.stop_recording(save_to_filename=os.path.join(log_dir, f'video_eval_ckpt_{args.ckpt}.mp4'), fps=60)

@@ -2,6 +2,8 @@ import argparse
 import os
 import pickle
 import shutil
+import datetime
+from zoneinfo import ZoneInfo
 
 from go2_env import Go2Env
 from rsl_rl.runners import OnPolicyRunner
@@ -140,8 +142,8 @@ def get_cfgs(img_obs_resolution, vision_obs):
             "lookat":(0, 0, 0.5),
             "fov":30,
             "GUI":False,
-            "use_rgb": True,
-            "use_depth": True
+            "use_rgb": False if vision_obs == "depth" else True,
+            "use_depth": False if vision_obs == "rgb" else True,
         }
     }
     reward_cfg = {
@@ -179,12 +181,18 @@ def main():
 
     gs.init(logging_level="warning")
 
+    current_time = datetime.datetime.now(ZoneInfo("Asia/Tokyo"))
+    unique_id = current_time.strftime("%Y%m%d_%H%M%S_%f")
     if args.debug or args.vision_obs is None:
-        log_dir = f"logs/{args.exp_name}-{args.num_envs}-no-vision"
+        log_dir = f"logs/{args.exp_name}-n_envs_{args.num_envs}-no_vision-{unique_id}"
     else:
-        log_dir = f"logs/{args.exp_name}-{args.num_envs}-{args.resolution[0]}x{args.resolution[1]}-{args.vision_obs}"
+        log_dir = f"logs/{args.exp_name}-n_envs_{args.num_envs}-res_{args.resolution[0]}x{args.resolution[1]}-{args.vision_obs}-{unique_id}"
+    print(f"Logging to {log_dir}")
     env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg = get_cfgs(img_obs_resolution=args.resolution, vision_obs=args.vision_obs)
     train_cfg = get_train_cfg(args.exp_name, args.max_iterations, args.vision_obs)
+    print(train_cfg)
+    print(obs_cfg)
+    print(camera_cfg)
 
     if os.path.exists(log_dir):
         shutil.rmtree(log_dir)
@@ -197,16 +205,16 @@ def main():
         del camera_cfg["head_camera"]
         train_cfg["policy"]["vision_obs"] = None
 
+    pickle.dump(
+        [env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg, train_cfg],
+        open(f"{log_dir}/cfgs.pkl", "wb"),
+    )
+    
     env = Go2Env(
         num_envs=args.num_envs, env_cfg=env_cfg, obs_cfg=obs_cfg, camera_cfg=camera_cfg, reward_cfg=reward_cfg, command_cfg=command_cfg, debug=args.debug
     )
 
     runner = OnPolicyRunner(env, train_cfg, log_dir, device="cuda:0", vis=True)
-
-    pickle.dump(
-        [env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg, train_cfg],
-        open(f"{log_dir}/cfgs.pkl", "wb"),
-    )
 
     runner.learn(num_learning_iterations=args.max_iterations, init_at_random_ep_len=True)
 
@@ -216,5 +224,5 @@ if __name__ == "__main__":
 
 """
 # training
-python examples/locomotion/go2_train.py -e go2-walking-test -B 4 --max_iterations 5
+python examples/locomotion/go2_train.py -e go2-walking-test -B 4 --max_iterations 5 --resolution 128 128 --vision_obs depth
 """

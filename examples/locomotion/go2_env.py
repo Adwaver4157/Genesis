@@ -64,6 +64,7 @@ class Go2Env:
         self.obs_scales = obs_cfg["obs_scales"]
         self.reward_scales = reward_cfg["reward_scales"]
 
+        print(self.camera_cfg)
         self.fixed_camera_render_cfg = {"depth": camera_cfg["fixed_camera"]["use_depth"]}
         del self.camera_cfg["fixed_camera"]["use_depth"]
         if "follower_camera" in camera_cfg:
