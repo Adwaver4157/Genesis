@@ -161,9 +161,9 @@ def get_cfgs(img_obs_resolution, vision_obs):
     }
     command_cfg = {
         "num_commands": 3,
-        "lin_vel_x_range": [0.5, 0.5],
-        "lin_vel_y_range": [0, 0],
-        "ang_vel_range": [0, 0],
+        "lin_vel_x_range": [0.1, 0.5],
+        "lin_vel_y_range": [0.1, 0.5],
+        "ang_vel_range": [-1, 1],
     }
 
     return env_cfg, obs_cfg, camera_cfg, reward_cfg, command_cfg
