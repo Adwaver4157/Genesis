@@ -121,7 +121,7 @@ def parse_terrain(morph: Terrain, surface):
                         new_subterrain,
                         hole_count=45,
                         hole_size_range=(0.01, 0.6),
-                        hole_depth_range=(0.01, 1.0),
+                        hole_depth_range=(-1.0, 1.0),
                         platform_size=1.0,
                         ground_level=0
                     ).height_field_raw

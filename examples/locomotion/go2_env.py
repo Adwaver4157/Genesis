@@ -152,6 +152,7 @@ class Go2Env:
             subterrain_types = [["holey_terrain"]*num_fields]*num_fields
             self.scene.add_entity(
                 morph=gs.morphs.Terrain(
+                    randomize=True,
                     n_subterrains=(num_fields, num_fields),
                     horizontal_scale=horizontal_scale,
                     vertical_scale=vertical_scale,
