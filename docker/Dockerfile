@@ -45,7 +45,7 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.31.0-rc2/cmake-3.
 
 # Build LuisaRender
 WORKDIR /workspace
-RUN git clone https://github.com/Genesis-Embodied-AI/Genesis.git && \
+RUN git clone https://github.com/Adwaver4157/Genesis.git && \
     cd Genesis && \
     git submodule update --init --recursive
 COPY build_luisa.sh /workspace/build_luisa.sh
@@ -87,16 +87,10 @@ WORKDIR /workspace
 
 # --------------------------- Genesis ----------------------------
 RUN pip install --no-cache-dir open3d
-RUN git clone https://github.com/Genesis-Embodied-AI/Genesis.git && \
+RUN git clone https://github.com/Adwaver4157/Genesis.git && \
     cd Genesis && \
     pip install . && \
     pip install --no-cache-dir PyOpenGL==3.1.5
-
-# ------------------------ Motion planning -----------------------
-RUN PYTHON_MAJOR_MINOR=$(echo ${PYTHON_VERSION} | tr -d '.') && \
-    wget https://github.com/ompl/ompl/releases/download/prerelease/ompl-1.6.0-cp${PYTHON_MAJOR_MINOR}-cp${PYTHON_MAJOR_MINOR}-manylinux_2_28_x86_64.whl && \
-    pip install ompl-1.6.0-cp${PYTHON_MAJOR_MINOR}-cp${PYTHON_MAJOR_MINOR}-manylinux_2_28_x86_64.whl && \
-    rm ompl-1.6.0-cp${PYTHON_MAJOR_MINOR}-cp${PYTHON_MAJOR_MINOR}-manylinux_2_28_x86_64.whl
 
 # -------------------- Surface Reconstruction --------------------
 # Set the LD_LIBRARY_PATH directly in the environment
